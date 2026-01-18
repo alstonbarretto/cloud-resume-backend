@@ -1,44 +1,127 @@
-resource "aws_apigatewayv2_api" "this" {
-  name          = "resume-counter-api"
-  protocol_type = "HTTP"
+variable "lambda_arn" {
+  description = "Lambda function ARN"
+  type        = string
+}
 
-  cors_configuration {
-    allow_origins = [var.allowed_origin]
-    allow_methods = ["GET", "OPTIONS"]
-    allow_headers = ["content-type"]
+variable "lambda_name" {
+  description = "Lambda function name"
+  type        = string
+}
+
+variable "allowed_origin" {
+  description = "CORS allowed origin"
+  type        = string
+}
+
+# REST API
+resource "aws_api_gateway_rest_api" "main" {
+  name        = "resume-api"
+  description = "API for resume visitor counter"
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
   }
 }
 
-resource "aws_apigatewayv2_stage" "prod" {
-  api_id      = aws_apigatewayv2_api.this.id
-  name        = "prod"
-  auto_deploy = true
+# Resource
+resource "aws_api_gateway_resource" "counter" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_rest_api.main.root_resource_id
+  path_part   = "counter"
 }
 
-resource "aws_apigatewayv2_integration" "lambda" {
-  api_id           = aws_apigatewayv2_api.this.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = var.lambda_arn
+# GET Method
+resource "aws_api_gateway_method" "get" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  resource_id   = aws_api_gateway_resource.counter.id
+  http_method   = "GET"
+  authorization = "NONE"
 }
 
-resource "aws_apigatewayv2_route" "count" {
-  api_id    = aws_apigatewayv2_api.this.id
-  route_key = "GET /count"
-  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+# Lambda Integration
+resource "aws_api_gateway_integration" "lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.main.id
+  resource_id             = aws_api_gateway_resource.counter.id
+  http_method             = aws_api_gateway_method.get.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${var.lambda_arn}/invocations"
 }
 
+# Lambda Permission - WAIT for Lambda to exist
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = var.lambda_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.this.execution_arn}/*/*"
+  source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
 }
 
+# Method Response
+resource "aws_api_gateway_method_response" "response_200" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  resource_id = aws_api_gateway_resource.counter.id
+  http_method = aws_api_gateway_method.get.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin" = true
+  }
+}
+
+# Integration Response
+resource "aws_api_gateway_integration_response" "lambda_response" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  resource_id = aws_api_gateway_resource.counter.id
+  http_method = aws_api_gateway_method.get.http_method
+  status_code = aws_api_gateway_method_response.response_200.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin" = "'${var.allowed_origin}'"
+  }
+
+  depends_on = [aws_api_gateway_integration.lambda]
+}
+
+# Deployment
+resource "aws_api_gateway_deployment" "main" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.counter.id,
+      aws_api_gateway_method.get.id,
+      aws_api_gateway_integration.lambda.id,
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [
+    aws_api_gateway_integration.lambda,
+    aws_lambda_permission.apigw
+  ]
+}
+
+# Stage
+resource "aws_api_gateway_stage" "prod" {
+  deployment_id = aws_api_gateway_deployment.main.id
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  stage_name    = "prod"
+}
+
+# Data source for region
+data "aws_region" "current" {}
+
+# Outputs
 output "api_endpoint" {
-  value = aws_apigatewayv2_api.this.api_endpoint
+  value       = aws_api_gateway_deployment.main.invoke_url
+  description = "API Gateway endpoint URL"
 }
 
-variable "lambda_arn" {}
-variable "lambda_name" {}
-variable "allowed_origin" {}
+output "api_id" {
+  value       = aws_api_gateway_rest_api.main.id
+  description = "API Gateway REST API ID"
+}
