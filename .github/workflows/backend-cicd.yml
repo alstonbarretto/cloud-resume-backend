@@ -36,6 +36,12 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Create dummy Lambda package for validation  # ← ADD THIS STEP
+        run: |
+          cd ../lambda
+          zip -r ../terraform/lambda.zip lambda.py
+          cd ../terraform    
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
