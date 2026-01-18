@@ -1,0 +1,36 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+terraform.tfplan
+tfplan
+
+# Lambda
+lambda.zip
+*.pyc
+__pycache__/
+
+# Cypress
+node_modules/
+cypress/videos/
+cypress/screenshots/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# AWS
+credentials
+.aws/
