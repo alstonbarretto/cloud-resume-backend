@@ -129,3 +129,4 @@ output "api_id" {
 output "stage_name" {
   value       = aws_api_gateway_stage.prod.stage_name
   description = "API Gateway stage name"
+  }
