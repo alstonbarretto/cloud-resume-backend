@@ -38,13 +38,7 @@ resource "aws_lambda_function" "main" {
   }
 }
 
-# Lambda permission for API Gateway
-resource "aws_lambda_permission" "api_gateway" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.main.function_name
-  principal     = "apigateway.amazonaws.com"
-}
+
 
 # Outputs
 output "lambda_arn" {
