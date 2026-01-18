@@ -1,34 +1,64 @@
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  output_path = "${path.module}/lambda.zip"
+# terraform/modules/lambda/main.tf
 
-  source {
-    content  = file("${path.module}/lambda.py")
-    filename = "lambda.py"
-  }
+variable "lambda_name" {
+  description = "Name of the Lambda function"
+  type        = string
 }
 
-resource "aws_lambda_function" "this" {
-  function_name = var.lambda_name
-  runtime       = "python3.11"
-  handler       = "lambda.lambda_handler"
-  role          = var.role_arn
-  timeout       = 3
+variable "table_name" {
+  description = "DynamoDB table name"
+  type        = string
+}
 
-  filename         = data.archive_file.lambda_zip.output_path
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+variable "role_arn" {
+  description = "IAM role ARN for Lambda"
+  type        = string
+}
+
+# Lambda function
+resource "aws_lambda_function" "main" {
+  filename         = "${path.root}/lambda.zip"  # ✅ Points to root/lambda.zip
+  function_name    = var.lambda_name
+  role            = var.role_arn
+  handler         = "lambda.lambda_handler"
+  source_code_hash = filebase64sha256("${path.root}/lambda.zip")
+  runtime         = "python3.11"
+  timeout         = 10
+  memory_size     = 128
 
   environment {
     variables = {
       resumeVisitors = var.table_name
     }
   }
+
+  tags = {
+    Name        = var.lambda_name
+    Environment = "Production"
+    ManagedBy   = "Terraform"
+  }
 }
 
-variable "lambda_name" {}
-variable "table_name" {}
-variable "role_arn" {}
+# Lambda permission for API Gateway
+resource "aws_lambda_permission" "api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.main.function_name
+  principal     = "apigateway.amazonaws.com"
+}
 
+# Outputs
 output "lambda_arn" {
-  value = aws_lambda_function.this.arn
+  value       = aws_lambda_function.main.arn
+  description = "ARN of the Lambda function"
+}
+
+output "lambda_function_name" {
+  value       = aws_lambda_function.main.function_name
+  description = "Name of the Lambda function"
+}
+
+output "lambda_invoke_arn" {
+  value       = aws_lambda_function.main.invoke_arn
+  description = "Invoke ARN of the Lambda function"
 }
