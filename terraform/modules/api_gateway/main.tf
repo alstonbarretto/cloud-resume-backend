@@ -118,7 +118,12 @@ data "aws_region" "current" {}
 # Outputs
 output "api_endpoint" {
   value       = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${data.aws_region.current.name}.amazonaws.com"
-  description = "API Gateway endpoint URL (without stage)"
+  description = "API Gateway base endpoint"
+}
+
+output "counter_endpoint" {
+  value       = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${data.aws_region.current.name}.amazonaws.com/${aws_api_gateway_stage.prod.stage_name}/counter"
+  description = "Full counter endpoint URL"
 }
 
 output "api_id" {

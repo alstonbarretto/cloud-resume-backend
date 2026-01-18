@@ -1,3 +1,4 @@
 output "api_base_url" {
-  value = "${module.api_gateway.api_endpoint}/prod"
+  value = module.api_gateway.counter_endpoint
+  description = "Full API counter endpoint"
 }
