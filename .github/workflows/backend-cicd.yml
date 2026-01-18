@@ -171,7 +171,7 @@ jobs:
         with:
           working-directory: cypress-tests
           browser: chrome
-          headless: true
+
         env:
           CYPRESS_API_URL: ${{ needs.deploy-infrastructure.outputs.api_url }}
           CYPRESS_EXPECTED_ORIGIN: https://alstontech.uk

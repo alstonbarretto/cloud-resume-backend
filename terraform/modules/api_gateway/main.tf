@@ -117,11 +117,15 @@ data "aws_region" "current" {}
 
 # Outputs
 output "api_endpoint" {
-  value       = aws_api_gateway_deployment.main.invoke_url
-  description = "API Gateway endpoint URL"
+  value       = "https://${aws_api_gateway_rest_api.main.id}.execute-api.${data.aws_region.current.name}.amazonaws.com"
+  description = "API Gateway endpoint URL (without stage)"
 }
 
 output "api_id" {
   value       = aws_api_gateway_rest_api.main.id
   description = "API Gateway REST API ID"
 }
+
+output "stage_name" {
+  value       = aws_api_gateway_stage.prod.stage_name
+  description = "API Gateway stage name"
